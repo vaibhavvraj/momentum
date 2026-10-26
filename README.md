@@ -2,9 +2,15 @@
 
 ### A personal workspace for focus, study, and the projects you care about.
 
-This project was built through a **vibe-coding workflow with ChatGPT and Codex**: shaping the product, iterating on the interface, and building its features step by step.
+Momentum is an all-in-one productivity workspace designed to help you stay focused, organize your studies, manage personal projects, and track your progress over time. It combines planning, deep work, analytics, journaling, and goal tracking into a single, modern interface.
 
-![Momentum dashboard](src/HomePage.png)
+This project was built through a **vibe-coding workflow with ChatGPT and Codex**—from brainstorming ideas and refining the user experience to implementing features and iterating on the design. Every screen, interaction, and component evolved through rapid experimentation and continuous feedback.
+
+Whether you're a student, developer, creator, or someone who simply wants a better way to organize their work, Momentum is designed to be customizable, distraction-free, and enjoyable to use.
+
+> **⚠️ Note:** Momentum is currently under active development. New features, improvements, and breaking changes may be introduced frequently.
+
+![Momentum Dashboard](src/HomePage.png)
 
 ---
 

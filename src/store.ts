@@ -11,7 +11,7 @@ export type Project = { id: string; name: string; description: string; deadline?
 export type PlannerEvent = { id: string; title: string; subjectId?: string; date: string; start: string; end: string }
 export type Reflection = { id: string; date: string; timeWasted: string; wentWell: string; improve: string }
 export type Checkin = { id: string; date: string; mood?: string; energy?: string }
-export type Settings = { id: 'main'; dailyGoalMinutes: number; weeklyGoalMinutes: number; monthlyGoalMinutes: number; pomodoroMinutes: number; accent: string; theme: 'dark' | 'light' | 'system' }
+export type Settings = { id: 'main'; profileName: string; dailyGoalMinutes: number; weeklyGoalMinutes: number; monthlyGoalMinutes: number; pomodoroMinutes: number; accent: string; theme: 'dark' | 'light' | 'system' }
 
 class WorkspaceDB extends Dexie {
   snapshots!: Table<{id:string}, string>
@@ -21,12 +21,13 @@ class WorkspaceDB extends Dexie {
     super('momentum-workspace')
     this.version(1).stores({snapshots:'id'})
     this.version(2).stores({snapshots:null,goals:'id,date,subjectId',subjects:'id,name',chapters:'id,subjectId',sessions:'id,startedAt,subjectId,chapterId',notes:'id,updatedAt,subjectId,chapterId,*tags',projects:'id,status,updatedAt',plannerEvents:'id,date,subjectId',reflections:'id,date',checkins:'id,date',settings:'id'})
+    this.version(3).stores({goals:'id,date,subjectId',subjects:'id,name',chapters:'id,subjectId',sessions:'id,startedAt,subjectId,chapterId',notes:'id,updatedAt,subjectId,chapterId,*tags',projects:'id,status,updatedAt',plannerEvents:'id,date,subjectId',reflections:'id,date',checkins:'id,date',settings:'id'}).upgrade(async tx=>{await tx.table('settings').toCollection().modify(settings=>{settings.profileName??=''})})
   }
 }
 const db = new WorkspaceDB()
 const isoDay=(date=new Date())=>`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`
 export const todayKey=()=>isoDay()
-export const emptySettings:Settings={id:'main',dailyGoalMinutes:300,weeklyGoalMinutes:1800,monthlyGoalMinutes:7200,pomodoroMinutes:25,accent:'#c5f36b',theme:'dark'}
+export const emptySettings:Settings={id:'main',profileName:'',dailyGoalMinutes:300,weeklyGoalMinutes:1800,monthlyGoalMinutes:7200,pomodoroMinutes:25,accent:'#c5f36b',theme:'dark'}
 const id=()=>crypto.randomUUID()
 
 type Store={hydrated:boolean;goals:Goal[];subjects:Subject[];chapters:Chapter[];sessions:Session[];notes:Note[];projects:Project[];plannerEvents:PlannerEvent[];reflections:Reflection[];checkins:Checkin[];settings:Settings;hydrate:()=>Promise<void>;saveGoal:(v:Partial<Goal>&Pick<Goal,'title'|'minutes'>)=>Promise<void>;toggleGoal:(id:string)=>Promise<void>;deleteGoal:(id:string)=>Promise<void>;saveSubject:(v:Partial<Subject>&Pick<Subject,'name'>)=>Promise<void>;deleteSubject:(id:string)=>Promise<void>;saveChapter:(v:Partial<Chapter>&Pick<Chapter,'subjectId'|'name'>)=>Promise<void>;saveSession:(v:Omit<Session,'id'>)=>Promise<void>;saveNote:(v:Partial<Note>&Pick<Note,'title'>)=>Promise<void>;deleteNote:(id:string)=>Promise<void>;saveProject:(v:Partial<Project>&Pick<Project,'name'>)=>Promise<void>;deleteProject:(id:string)=>Promise<void>;toggleProjectTask:(projectId:string,taskId:string)=>Promise<void>;addProjectTask:(projectId:string,title:string)=>Promise<void>;savePlannerEvent:(v:Partial<PlannerEvent>&Pick<PlannerEvent,'title'|'date'|'start'|'end'>)=>Promise<void>;deletePlannerEvent:(id:string)=>Promise<void>;saveReflection:(v:Omit<Reflection,'id'>)=>Promise<void>;saveCheckin:(v:Omit<Checkin,'id'>)=>Promise<void>;updateSettings:(v:Partial<Settings>)=>Promise<void>;importData:(file:File)=>Promise<void>;resetData:()=>Promise<void>;exportData:()=>Promise<void>}

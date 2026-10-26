@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { type ChangeEvent, type FormEvent, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Activity, ArrowUpRight, BarChart3, BookOpen, CalendarDays, Check, CheckCheck, ChevronRight, CircleHelp, CircleUserRound, Flame, FolderKanban, LayoutDashboard, ListTodo, Menu, MoreHorizontal, NotebookPen, Pause, Play, Plus, Search, Settings as SettingsIcon, Sparkles, Square, Sun, Timer, Trash2, TrendingUp, X } from 'lucide-react'
 import { type Goal, type Note, type Project, type Session, type Settings, todayKey, useWorkspace } from './store'
@@ -19,7 +19,8 @@ export default function App(){
  useEffect(()=>{const fn=(e:KeyboardEvent)=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();setSearchOpen(true)}if(e.key==='Escape'){setQuick(false);setSearchOpen(false);setReflectionOpen(false)}};window.addEventListener('keydown',fn);return()=>window.removeEventListener('keydown',fn)},[])
  const openPage=(p:Page)=>{setPage(p);setMobileMenu(false)}
  if(!store.hydrated)return <div className="loading-screen"><div className="brand-mark"><Sparkles size={17}/></div><span>Loading your workspace…</span></div>
- return <div className="app-shell"><aside className={`sidebar ${mobileMenu?'sidebar-open':''}`}><div className="brand"><div className="brand-mark"><Sparkles size={17}/></div><span>momentum<span className="brand-dot">.</span></span><button className="icon-btn side-close" onClick={()=>setMobileMenu(false)}><X size={17}/></button></div><div className="workspace-label">YOUR WORKSPACE</div><nav className="nav-list">{nav.map(({name,icon:Icon})=><button className={`nav-item ${page===name?'active':''}`} key={name} onClick={()=>openPage(name)}><Icon size={17}/><span>{name}</span>{name==='Focus'&&<span className="nav-live"/>}</button>)}</nav><div className="sidebar-divider"/><button className={`nav-item ${page==='Settings'?'active':''}`} onClick={()=>openPage('Settings')}><SettingsIcon size={17}/><span>Settings</span></button><div className="sidebar-bottom"><div className="streak-card"><div className="streak-icon"><Flame size={17}/></div><div><strong>{streakFor(store.sessions)} day streak</strong><span>{streakFor(store.sessions)?'Keep your rhythm going':'Your streak starts with a session'}</span></div><ChevronRight size={15}/></div><div className="profile"><div className="avatar"><CircleUserRound size={17}/></div><div className="profile-info"><strong>Personal workspace</strong><span>Saved on this device</span></div><MoreHorizontal size={18} className="muted"/></div></div></aside>
+ if(!store.settings.profileName.trim())return <NameSetup onSave={(name:string)=>void store.updateSettings({profileName:name})}/>
+ return <div className="app-shell"><aside className={`sidebar ${mobileMenu?'sidebar-open':''}`}><div className="brand"><div className="brand-mark"><Sparkles size={17}/></div><span>momentum<span className="brand-dot">.</span></span><button className="icon-btn side-close" onClick={()=>setMobileMenu(false)}><X size={17}/></button></div><div className="workspace-label">YOUR WORKSPACE</div><nav className="nav-list">{nav.map(({name,icon:Icon})=><button className={`nav-item ${page===name?'active':''}`} key={name} onClick={()=>openPage(name)}><Icon size={17}/><span>{name}</span>{name==='Focus'&&<span className="nav-live"/>}</button>)}</nav><div className="sidebar-divider"/><button className={`nav-item ${page==='Settings'?'active':''}`} onClick={()=>openPage('Settings')}><SettingsIcon size={17}/><span>Settings</span></button><div className="sidebar-bottom"><div className="streak-card"><div className="streak-icon"><Flame size={17}/></div><div><strong>{streakFor(store.sessions)} day streak</strong><span>{streakFor(store.sessions)?'Keep your rhythm going':'Your streak starts with a session'}</span></div><ChevronRight size={15}/></div><div className="profile"><div className="avatar">{store.settings.profileName.trim().charAt(0).toLocaleUpperCase()}</div><div className="profile-info"><strong>{store.settings.profileName}’s Personal Workspace</strong><span>Saved in this browser</span></div><MoreHorizontal size={18} className="muted"/></div></div></aside>
   <main className="main-area"><header className="topbar"><button className="icon-btn menu-trigger" onClick={()=>setMobileMenu(!mobileMenu)}><Menu size={19}/></button><div className="crumb"><span>Workspace</span><ChevronRight size={14}/><strong>{page}</strong></div><div className="topbar-right"><div className="top-date"><CalendarDays size={15}/><span>{dayLabel(todayKey())}</span></div><div className="top-streak"><Flame size={15}/><b>{streakFor(store.sessions)}</b></div><button className="search-trigger" onClick={()=>setSearchOpen(true)}><Search size={15}/><span>Search anything...</span><kbd>Ctrl K</kbd></button><button className="quick-button" onClick={()=>setQuick(true)}><Plus size={16}/><span>Quick add</span></button></div></header><div className="page-content"><AnimatePresence mode="wait"><motion.div key={page} initial={{opacity:0,y:7}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-4}} transition={{duration:.18}}>
    {page==='Dashboard'&&<Dashboard store={store} openPage={openPage} addGoal={()=>setQuick(true)} openReflection={()=>setReflectionOpen(true)} setToast={setToast}/>}
    {page==='Study'&&<Study store={store} setToast={setToast}/>}{page==='Focus'&&<Focus store={store} setToast={setToast}/>}{page==='Planner'&&<Planner store={store}/>}{page==='Analytics'&&<Analytics store={store}/>}{page==='Notes'&&<Notes store={store}/>}{page==='Projects'&&<Projects store={store}/>}{page==='Settings'&&<SettingsPage store={store} setToast={setToast}/>}
@@ -39,8 +40,10 @@ function Dialog({children,onClose,className='quick-modal'}:any){return <div clas
 function ModalHead({kicker,title,onClose}:any){return <div className="modal-heading"><div><span className="section-kicker">{kicker}</span><h3>{title}</h3></div><button className="icon-btn" onClick={onClose}><X size={18}/></button></div>}
 function Stat({icon:Icon,label,value,trend,color='lime'}:any){return <div className="stat-card"><div className={`stat-icon ${color}`}><Icon size={17}/></div><span className="stat-label">{label}</span><div className="stat-bottom"><strong>{value}</strong>{trend&&<span className={`stat-trend ${color}`}>{trend}</span>}</div></div>}
 
+function NameSetup({onSave}:any){const [name,setName]=useState('');const submit=(e:FormEvent)=>{e.preventDefault();const clean=name.trim();if(clean)onSave(clean)};return <main className="name-setup"><motion.form className="name-setup-card" onSubmit={submit} initial={{opacity:0,y:10}} animate={{opacity:1,y:0}}><div className="brand-mark name-setup-mark"><Sparkles size={19}/></div><span className="section-kicker">WELCOME TO MOMENTUM</span><h1>Let’s make this yours.</h1><p>Your workspace is private to this browser. What should we call you?</p><label htmlFor="profile-name">YOUR NAME</label><input id="profile-name" autoFocus autoComplete="given-name" maxLength={48} value={name} onChange={e=>setName(e.target.value)} placeholder="Enter your name"/><button className="primary-button" type="submit" disabled={!name.trim()}>Continue <ArrowUpRight size={15}/></button><small>Your name and workspace are saved in this browser.</small></motion.form></main>}
+
 function Dashboard({store,openPage,addGoal,openReflection,setToast}:any){const today=todayKey();const goals=store.goals.filter((g:Goal)=>g.date===today).sort((a:Goal,b:Goal)=>a.order-b.order);const sessions=store.sessions.filter((s:Session)=>dayKey(new Date(s.startedAt))===today);const focused=sessions.reduce((a:number,s:Session)=>a+s.minutes,0);const planned=goals.filter((g:Goal)=>!g.done).reduce((a:number,g:Goal)=>a+g.minutes,0);const done=goals.filter((g:Goal)=>g.done).length;const pct=goals.length?Math.round(done/goals.length*100):0;const todayCheckin=store.checkins.find((c:any)=>c.date===today);const totalSessions=store.sessions.length;const averageRating=sessions.filter((s:Session)=>s.rating).reduce((a:number,s:Session)=>a+(s.rating??0),0)/Math.max(1,sessions.filter((s:Session)=>s.rating).length);const score=focused?Math.round(Math.min(focused/store.settings.dailyGoalMinutes,1)*(averageRating?70:100)+(averageRating/5)*30):0;const hour=new Date().getHours();const greet=hour<12?'Good morning':hour<18?'Good afternoon':'Good evening';
- return <div className="dashboard-page"><div className="welcome-row"><div><div className="eyebrow"><span className="eyebrow-dot"/>{new Intl.DateTimeFormat(undefined,{weekday:'long'}).format(new Date()).toUpperCase()}, YOUR MOMENT</div><h1>{greet}<span className="wave">✳</span></h1><p className="subhead">Your workspace is ready when you are.</p></div><span className="date-pill"><Sun size={15}/>{dayLabel(today)}</span></div>
+ return <div className="dashboard-page"><div className="welcome-row"><div><div className="eyebrow"><span className="eyebrow-dot"/>{new Intl.DateTimeFormat(undefined,{weekday:'long'}).format(new Date()).toUpperCase()}, YOUR MOMENT</div><h1>{greet}, {store.settings.profileName}<span className="wave">✳</span></h1><p className="subhead">Your workspace is ready when you are.</p></div><span className="date-pill"><Sun size={15}/>{dayLabel(today)}</span></div>
   <div className="hero-grid"><section className="hero-card"><div className="hero-glow"/><div className="hero-content"><div className="hero-overline"><span className="pulse-dot"/> DAILY FOCUS</div><h2>{focused?'Keep your':'Make room for'}<br/><em>good work.</em></h2><p>{focused?`${minutesText(focused)} focused today. Take the next step when you're ready.`:'Start a focus session whenever you are ready.'}</p><button className="hero-cta" onClick={()=>openPage('Focus')}><Play size={15} fill="currentColor"/> Start a focus session <ArrowUpRight size={15}/></button></div><div className="orbit orbit-one"/><div className="orbit orbit-two"/><div className="hero-spark spark-one">✦</div><div className="hero-spark spark-two">✳</div><div className="hero-bottom"><span>DAILY REFLECTION</span><button onClick={openReflection}>Open reflection <ArrowUpRight size={13}/></button></div></section>
    <section className="progress-card"><div className="card-heading"><div><span className="section-kicker">TODAY AT A GLANCE</span><h3>Daily progress</h3></div><button className="dots-btn" onClick={()=>openPage('Analytics')}><MoreHorizontal size={19}/></button></div><div className="progress-center"><div className="progress-ring" style={{'--p':pct} as any}><div className="ring-inner"><strong>{pct}<small>%</small></strong><span>COMPLETE</span></div></div><div className="progress-copy"><strong>{done} of {goals.length}</strong><span>goals completed</span></div></div>{goals.length?<><div className="progress-footer"><div><span className="legend-dot lime"/>Completed</div><span>{done} goals</span><div><span className="legend-dot dark-dot"/>Remaining</div><span>{goals.length-done} goals</span></div><div className="progress-mini"><span style={{width:`${pct}%`}}/></div></>:<div className="empty-inline">No goals planned for today.</div>}</section></div>
   <div className="stats-grid"><Stat icon={Timer} label="FOCUS TIME TODAY" value={minutesText(focused)} color="lime"/><Stat icon={ListTodo} label="PLANNED TIME LEFT" value={minutesText(planned)} color="violet"/><Stat icon={CheckCheck} label="GOALS COMPLETED" value={`${done} / ${goals.length}`} color="blue"/><Stat icon={Flame} label="CURRENT STREAK" value={`${streakFor(store.sessions)} days`} color="orange"/><Stat icon={TrendingUp} label="LONGEST STREAK" value={`${longestStreakFor(store.sessions)} days`} color="violet"/><Stat icon={Activity} label="SESSIONS TODAY" value={String(sessions.length)} color="blue"/></div>
@@ -77,7 +80,120 @@ function Projects({store}:any){const [open,setOpen]=useState(false);const [name,
 
 function ReflectionDialog({store,onClose,setToast}:any){const today=todayKey();const saved=store.reflections.find((r:any)=>r.date===today);const [history,setHistory]=useState(false);const update=(field:string,value:string)=>void store.saveReflection({date:today,timeWasted:field==='timeWasted'?value:saved?.timeWasted??'',wentWell:field==='wentWell'?value:saved?.wentWell??'',improve:field==='improve'?value:saved?.improve??''});return <Dialog onClose={onClose} className="quick-modal reflection-modal"><ModalHead kicker="PRIVATE DAILY JOURNAL" title={history?'Previous reflections':'Daily reflection'} onClose={onClose}/>{history?<div className="reflection-history">{store.reflections.length?store.reflections.map((r:any)=><article key={r.id}><b>{dayLabel(r.date)}</b><p><strong>Went well:</strong> {r.wentWell||'—'}</p><p><strong>Improve:</strong> {r.improve||'—'}</p><p><strong>Time:</strong> {r.timeWasted||'—'}</p></article>):<Empty title="No saved reflections" body="Your reflections will appear here after you add one."/>}</div>:<><p className="subhead">Your answers are saved automatically on this device.</p><label className="field-label">WHAT WENT WELL TODAY?</label><textarea className="text-input reflection-input" value={saved?.wentWell??''} onChange={e=>update('wentWell',e.target.value)} placeholder="Write a few words…"/><label className="field-label">WHAT WASTED YOUR TIME?</label><textarea className="text-input reflection-input" value={saved?.timeWasted??''} onChange={e=>update('timeWasted',e.target.value)} placeholder="Anything you would change?"/><label className="field-label">WHAT WILL YOU IMPROVE TOMORROW?</label><textarea className="text-input reflection-input" value={saved?.improve??''} onChange={e=>update('improve',e.target.value)} placeholder="One small step…"/></>}<div className="modal-actions"><button className="text-button" onClick={()=>setHistory(!history)}>{history?'Today’s reflection':'Search previous reflections'}</button><button className="primary-button" onClick={()=>{onClose();setToast('Reflection saved locally')}}><Check size={14}/> Done</button></div></Dialog>}
 
-function SettingsPage({store,setToast}:any){const [confirm,setConfirm]=useState(false);const [error,setError]=useState('');return <div className="section-page"><PageHeading kicker="MAKE IT YOURS" title="Settings" subtitle="Preferences and backup data are stored on this device."/><div className="settings-layout"><aside className="settings-nav"><button className="selected"><Sun size={15}/> Preferences</button><button><Timer size={15}/> Focus & goals</button><button><CircleHelp size={15}/> Data & privacy</button></aside><section className="panel settings-panel"><span className="section-kicker">APPEARANCE</span><h3>Theme & accent</h3><div className="setting-row"><div><b>Theme</b><span>Display preference</span></div><select className="text-input compact-select" value={store.settings.theme} onChange={e=>void store.updateSettings({theme:e.target.value as Settings['theme']})}><option value="dark">Dark</option><option value="light">Light</option><option value="system">System</option></select></div><div className="setting-row"><div><b>Accent color</b><span>Choose your workspace highlight</span></div><div className="accent-picker">{palette.map(c=><button aria-label={`Set accent ${c}`} style={{background:c}} className={store.settings.accent===c?'accent-selected':''} key={c} onClick={()=>void store.updateSettings({accent:c})}/>)}</div></div><div className="settings-separator"/><span className="section-kicker">GOALS & FOCUS</span><h3 className="settings-subhead">Session targets</h3><NumberSetting label="Daily focus goal" value={store.settings.dailyGoalMinutes} onChange={(v:number)=>void store.updateSettings({dailyGoalMinutes:v})}/><NumberSetting label="Weekly focus goal" value={store.settings.weeklyGoalMinutes} onChange={(v:number)=>void store.updateSettings({weeklyGoalMinutes:v})}/><NumberSetting label="Monthly focus goal" value={store.settings.monthlyGoalMinutes} onChange={(v:number)=>void store.updateSettings({monthlyGoalMinutes:v})}/><NumberSetting label="Pomodoro length" value={store.settings.pomodoroMinutes} onChange={(v:number)=>void store.updateSettings({pomodoroMinutes:v})}/><div className="settings-separator"/><span className="section-kicker">BACKUP & RESTORE</span><div className="setting-row"><div><b>Export workspace</b><span>Download all saved records as JSON</span></div><button className="outline-button" onClick={()=>void store.exportData().then(()=>setToast('Backup downloaded'))}>Export data <ArrowUpRight size={14}/></button></div><div className="setting-row"><div><b>Import workspace</b><span>Replace saved records with a JSON backup</span></div><label className="outline-button file-button">Import data<input type="file" accept="application/json,.json" onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{await store.importData(f);setError('');setToast('Backup restored')}catch{setError('Could not import this file. Check that it is a Momentum backup.')}e.currentTarget.value=''}}/></label></div>{error&&<div className="import-error">{error}</div>}<div className="setting-row"><div><b>Reset workspace</b><span>Remove all locally saved records</span></div><button className="outline-button danger-button" onClick={()=>setConfirm(true)}>Reset data <Trash2 size={13}/></button></div></section></div>{confirm&&<Dialog onClose={()=>setConfirm(false)}><ModalHead kicker="CLEAR LOCAL DATA" title="Reset this workspace?" onClose={()=>setConfirm(false)}/><p className="subhead">Goals, subjects, chapters, sessions, notes, projects, planner events, reflections, check-ins, and preferences will be removed from this device.</p><div className="modal-actions"><button className="outline-button" onClick={()=>setConfirm(false)}>Cancel</button><button className="danger-confirm" onClick={async()=>{await store.resetData();setConfirm(false);setToast('Workspace cleared')}}>Reset workspace</button></div></Dialog>}</div>}
+function SettingsPage({store,setToast}:any){
+  const [confirm,setConfirm]=useState(false)
+  const [error,setError]=useState('')
+  const [profileName,setProfileName]=useState(store.settings.profileName)
+  const [section,setSection]=useState<'preferences'|'focus'|'privacy'>('preferences')
+
+  const saveProfile=async()=>{
+    const clean=profileName.trim()
+    if(!clean)return
+    await store.updateSettings({profileName:clean})
+    setProfileName(clean)
+    setToast('Name saved')
+  }
+  const importBackup=async(e:ChangeEvent<HTMLInputElement>)=>{
+    const file=e.target.files?.[0]
+    if(!file)return
+    try{
+      await store.importData(file)
+      setError('')
+      setToast('Backup restored')
+    }catch{
+      setError('Could not import this file. Check that it is a Momentum backup.')
+    }
+    e.currentTarget.value=''
+  }
+
+  return (
+    <div className="section-page">
+      <PageHeading kicker="MAKE IT YOURS" title="Settings" subtitle="Preferences and backup data are stored on this device."/>
+      <div className="settings-layout">
+        <aside className="settings-nav">
+          <button className={section==='preferences'?'selected':''} onClick={()=>setSection('preferences')}><Sun size={15}/> Preferences</button>
+          <button className={section==='focus'?'selected':''} onClick={()=>setSection('focus')}><Timer size={15}/> Focus & goals</button>
+          <button className={section==='privacy'?'selected':''} onClick={()=>setSection('privacy')}><CircleHelp size={15}/> Data & privacy</button>
+        </aside>
+
+        {section==='preferences'&&(
+          <section className="panel settings-panel">
+            <span className="section-kicker">YOUR PROFILE</span>
+            <h3>Workspace name</h3>
+            <div className="setting-row">
+              <div><b>Your name</b><span>Shown in your greeting and profile</span></div>
+              <div className="profile-edit">
+                <input className="text-input" value={profileName} maxLength={48} onChange={e=>setProfileName(e.target.value)}/>
+                <button className="outline-button" disabled={!profileName.trim()||profileName.trim()===store.settings.profileName} onClick={()=>void saveProfile()}>Save</button>
+              </div>
+            </div>
+            <div className="settings-separator"/>
+            <span className="section-kicker">APPEARANCE</span>
+            <h3>Theme & accent</h3>
+            <div className="setting-row">
+              <div><b>Theme</b><span>Display preference</span></div>
+              <select className="text-input compact-select" value={store.settings.theme} onChange={e=>void store.updateSettings({theme:e.target.value as Settings['theme']})}>
+                <option value="dark">Dark</option><option value="light">Light</option><option value="system">System</option>
+              </select>
+            </div>
+            <div className="setting-row">
+              <div><b>Accent color</b><span>Choose your workspace highlight</span></div>
+              <div className="accent-picker">
+                {palette.map(c=><button aria-label="Set accent color" style={{background:c}} className={store.settings.accent===c?'accent-selected':''} key={c} onClick={()=>void store.updateSettings({accent:c})}/>)}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {section==='focus'&&(
+          <section className="panel settings-panel">
+            <span className="section-kicker">FOCUS & GOALS</span>
+            <h3 className="settings-subhead">Session targets</h3>
+            <p className="settings-help">These targets update your progress summaries and focus timer.</p>
+            <NumberSetting label="Daily focus goal" value={store.settings.dailyGoalMinutes} onChange={(v:number)=>void store.updateSettings({dailyGoalMinutes:v})}/>
+            <NumberSetting label="Weekly focus goal" value={store.settings.weeklyGoalMinutes} onChange={(v:number)=>void store.updateSettings({weeklyGoalMinutes:v})}/>
+            <NumberSetting label="Monthly focus goal" value={store.settings.monthlyGoalMinutes} onChange={(v:number)=>void store.updateSettings({monthlyGoalMinutes:v})}/>
+            <NumberSetting label="Pomodoro length" value={store.settings.pomodoroMinutes} onChange={(v:number)=>void store.updateSettings({pomodoroMinutes:v})}/>
+          </section>
+        )}
+
+        {section==='privacy'&&(
+          <section className="panel settings-panel">
+            <span className="section-kicker">DATA & PRIVACY</span>
+            <h3 className="settings-subhead">Your data stays in this browser</h3>
+            <p className="privacy-copy">Your goals, study history, notes, projects, reflections, check-ins, and preferences are saved in this browser using IndexedDB. Momentum does not upload this workspace to a server or sync it to other devices. Your browser profile is the boundary for this local data; anyone with access to that profile may be able to open it.</p>
+            <p className="privacy-copy">To remove your local data, use Reset workspace below or clear this site’s stored data in your browser settings. Export a backup first if you want to keep a copy.</p>
+            <div className="settings-separator"/>
+            <span className="section-kicker">BACKUP & RESTORE</span>
+            <div className="setting-row">
+              <div><b>Export workspace</b><span>Download all saved records as JSON</span></div>
+              <button className="outline-button" onClick={()=>void store.exportData().then(()=>setToast('Backup downloaded'))}>Export data <ArrowUpRight size={14}/></button>
+            </div>
+            <div className="setting-row">
+              <div><b>Import workspace</b><span>Replace saved records with a JSON backup</span></div>
+              <label className="outline-button file-button">Import data<input type="file" accept="application/json,.json" onChange={importBackup}/></label>
+            </div>
+            {error&&<div className="import-error">{error}</div>}
+            <div className="setting-row">
+              <div><b>Reset workspace</b><span>Remove all locally saved records, including your profile name</span></div>
+              <button className="outline-button danger-button" onClick={()=>setConfirm(true)}>Reset data <Trash2 size={13}/></button>
+            </div>
+          </section>
+        )}
+      </div>
+      {confirm&&(
+        <Dialog onClose={()=>setConfirm(false)}>
+          <ModalHead kicker="CLEAR LOCAL DATA" title="Reset this workspace?" onClose={()=>setConfirm(false)}/>
+          <p className="subhead">Goals, subjects, chapters, sessions, notes, projects, planner events, reflections, check-ins, profile name, and preferences will be removed from this device.</p>
+          <div className="modal-actions">
+            <button className="outline-button" onClick={()=>setConfirm(false)}>Cancel</button>
+            <button className="danger-confirm" onClick={async()=>{await store.resetData();setConfirm(false);setToast('Workspace cleared')}}>Reset workspace</button>
+          </div>
+        </Dialog>
+      )}
+    </div>
+  )
+}
 function NumberSetting({label,value,onChange}:any){return <div className="setting-row"><div><b>{label}</b><span>Minutes</span></div><div className="number-step"><button onClick={()=>onChange(Math.max(1,value-5))}>−</button><strong>{value} <small>min</small></strong><button onClick={()=>onChange(value+5)}>+</button></div></div>}
 
 function SearchDialog({store,query,setQuery,onClose,openPage}:any){const all=[...store.subjects.map((x:any)=>({title:x.name,type:'Subject',page:'Study' as Page})),...store.notes.map((x:Note)=>({title:x.title||'Untitled note',type:'Note',page:'Notes' as Page})),...store.projects.map((x:Project)=>({title:x.name,type:'Project',page:'Projects' as Page})),...store.goals.map((x:Goal)=>({title:x.title,type:'Goal',page:'Dashboard' as Page})),...store.sessions.map((x:Session)=>({title:x.task||'Focus session',type:'Session',page:'Analytics' as Page}))];const found=query?all.filter(x=>x.title.toLowerCase().includes(query.toLowerCase())).slice(0,8):[];return <Dialog onClose={onClose} className="search-modal"><div className="search-input-wrap"><Search size={19}/><input autoFocus placeholder="Search saved items…" value={query} onChange={e=>setQuery(e.target.value)}/><kbd>ESC</kbd></div><div className="search-results">{found.length?found.map((x:any,i:number)=><button key={`${x.type}-${i}`} onClick={()=>{openPage(x.page);onClose();setQuery('')}}><span className="result-icon"><Search size={14}/></span><span>{x.title}</span><small>{x.type}</small></button>):query?<div className="search-empty">No saved items match “{query}”.</div>:<div className="search-hint">Search subjects, goals, notes, projects, and sessions.</div>}</div><div className="search-foot"><span>Only your saved workspace data is searched</span><span><kbd>ESC</kbd> close</span></div></Dialog>}
